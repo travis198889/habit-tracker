@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f6f5f1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Habits</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div>
+      <p class="eyebrow" id="dateLabel"></p>
+      <h1 id="greeting">Today</h1>
+    </div>
+    <button class="icon-btn" id="settingsBtn" aria-label="Settings">⋯</button>
+  </header>
+  <section class="progress-card" id="progressCard"></section>
+  <main id="todayList"></main>
+  <button class="fab" id="addBtn" aria-label="Add habit">+ New habit</button>
+</div>
+
+<!-- Detail view -->
+<section class="screen" id="detail" hidden></section>
+
+<!-- Edit sheet -->
+<div class="sheet-wrap" id="editWrap" hidden>
+  <form class="sheet" id="editForm" autocomplete="off">
+    <div class="sheet-head">
+      <button type="button" class="link" data-close>Cancel</button>
+      <h2 id="editTitle">New habit</h2>
+      <button type="submit" class="link strong">Save</button>
+    </div>
+    <label class="field"><span>Name</span><input name="name" id="fName" required maxlength="40" placeholder="e.g. Meditate 10 min"></label>
+    <div class="field"><span>Emoji</span><div class="emoji-row" id="emojiRow"></div>
+      <input name="emoji" id="fEmoji" maxlength="4" class="emoji-input" aria-label="Custom emoji"></div>
+    <div class="field"><span>Color</span><div class="color-row" id="colorRow"></div></div>
+    <div class="field"><span>Schedule</span>
+      <div class="seg" id="schedSeg">
+        <button type="button" data-v="daily">Every day</button>
+        <button type="button" data-v="weekdays">Specific days</button>
+        <button type="button" data-v="weekly">X per week</button>
+      </div>
+      <div class="days" id="daysRow"></div>
+      <div class="times" id="timesRow"><button type="button" id="tMinus">−</button><b id="tVal">3</b><span>times per week</span><button type="button" id="tPlus">+</button></div>
+    </div>
+    <label class="field"><span>Why <em>(optional)</em></span><textarea name="why" id="fWhy" rows="2" maxlength="200" placeholder="What does this habit give you?"></textarea></label>
+    <button type="button" class="danger" id="deleteBtn" hidden>Delete habit</button>
+  </form>
+</div>
+
+<!-- Settings sheet -->
+<div class="sheet-wrap" id="settingsWrap" hidden>
+  <div class="sheet">
+    <div class="sheet-head"><span></span><h2>Settings</h2><button type="button" class="link strong" data-close>Done</button></div>
+    <button class="row-btn" id="exportBtn">⬇️ Export backup (JSON)</button>
+    <label class="row-btn">⬆️ Import backup<input type="file" id="importFile" accept="application/json,.json" hidden></label>
+    <button class="row-btn" id="clearSampleBtn">🧹 Clear sample data</button>
+    <button class="row-btn danger-text" id="resetBtn">Delete all habits</button>
+    <p class="muted small">Your data stays on this device (localStorage). Export regularly to keep a backup.</p>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>
