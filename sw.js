@@ -1,4 +1,4 @@
-const CACHE = 'habits-v2';
+const CACHE = 'habits-v3';
 const ASSETS = ['./', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 const REM_CACHE = 'habit-reminders', REM_URL = './__reminders.json';
 

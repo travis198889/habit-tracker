@@ -69,14 +69,14 @@ function seed() {
     { id: uid(), sample: true, name: 'Sleep 8 hours', emoji: '😴', color: COLORS[1], why: 'Everything is easier when I’m rested.',
       schedule: { type: 'daily' }, created: key(addDays(t,-42)), measure: { unit: 'hours', target: 8 }, reminder: '22:00', values: {}, notes: {},
       log: log(i => i === 6 ? 'rest' : (i % 5 === 0 || i === 11 || (i > 28 && i % 3 === 0)) ? null : 'done') },
-    { id: uid(), sample: true, name: 'Read 20 min', emoji: '📚', color: COLORS[2], why: '',
-      schedule: { type: 'weekly', times: 4 }, created: key(addDays(t,-42)), measure: { unit: 'min', target: 20 }, reminder: null, values: {}, notes: {},
+    { id: uid(), sample: true, name: 'Read', emoji: '📚', color: COLORS[2], why: 'A few chapters a week adds up.',
+      schedule: { type: 'weekly', times: 4 }, created: key(addDays(t,-42)), measure: { unit: 'minutes', target: 30 }, reminder: null, values: {}, notes: {},
       log: log(i => (i % 2 === 0 || i === 3) ? 'done' : null) },
   ]};
   const [w, sl, rd] = s.habits;
   sl.log[key(t)] = 'done';
-  for (const k of Object.keys(sl.log)) if (sl.log[k] === 'done') { const i = (t - parse(k)) / 864e5; sl.values[k] = +(7 + ((i * 37) % 17) / 10 + (i < 14 ? 0.4 : 0)).toFixed(1); }
-  for (const k of Object.keys(rd.log)) if (rd.log[k] === 'done') { const i = (t - parse(k)) / 864e5; rd.values[k] = 12 + Math.round((i * 7) % 19); }
+  for (const k of Object.keys(sl.log)) if (sl.log[k] === 'done') { const i = (t - parse(k)) / 864e5; sl.values[k] = i === 0 ? 8.2 : +(7.4 + ((i * 37) % 17) / 10 + (i < 14 ? 0.3 : 0)).toFixed(1); }
+  for (const k of Object.keys(rd.log)) if (rd.log[k] === 'done') { const i = (t - parse(k)) / 864e5; rd.values[k] = [35, 40, 30, 45, 32, 20, 38, 42][i % 8]; }
   const n = (h, i, txt) => { h.notes[key(addDays(t, -i))] = txt; };
   n(w, 2, 'Legs + core. Felt strong, added 5 kg to squats.'); n(w, 4, 'Short 20 min session, still counts.');
   n(w, 12, 'Rest — sore from Monday. Long walk instead.'); n(sl, 0, 'Phone out of the bedroom — slept great.');
@@ -87,8 +87,13 @@ function seed() {
 
 /* ================= habit logic ================= */
 const isScheduled = (h, d) => h.schedule.type === 'weekdays' ? h.schedule.days.includes(d.getDay()) : true;
-const statusOf = (h, d) => h.log[key(d)] || null;
-function weekCount(h, d, upto) { const s = weekStart(d); let n = 0; for (let i = 0; i < 7; i++) { const x = addDays(s, i); if (upto && x > upto) break; if (h.log[key(x)] === 'done') n++; } return n; }
+/** Measured habits with a target: a logged day only counts as DONE when value >= target; below target = 'partial'
+ *  (not met). Days logged without a value (e.g. before measuring was turned on) still count as done. */
+const metTarget = (h, k) => !h.measure || h.measure.target == null || h.values[k] == null || h.values[k] >= h.measure.target;
+const statusAt = (h, k) => { const v = h.log[k] || null; return v === 'done' && !metTarget(h, k) ? 'partial' : v; };
+const statusOf = (h, d) => statusAt(h, key(d));
+const closed = s => s === 'done' || s === 'rest';
+function weekCount(h, d, upto) { const s = weekStart(d); let n = 0; for (let i = 0; i < 7; i++) { const x = addDays(s, i); if (upto && x > upto) break; if (statusOf(h, x) === 'done') n++; } return n; }
 function weekRests(h, d, upto) { const s = weekStart(d); let n = 0; for (let i = 0; i < 7; i++) { const x = addDays(s, i); if (upto && x > upto) break; if (h.log[key(x)] === 'rest') n++; } return n; }
 const weekMet = (h, d) => weekCount(h, d) + weekRests(h, d) >= h.schedule.times;
 const startOf = h => { const f = Object.keys(h.log).sort()[0]; return parse(f && f < h.created ? f : h.created); };
@@ -102,7 +107,7 @@ function streak(h) {
     while (weekMet(h, w) && n < 1000) { n++; w = addDays(w, -7); }
     return { n, unit: n === 1 ? 'week' : 'weeks' };
   }
-  let d = statusOf(h, t) ? t : addDays(t, -1);
+  let d = closed(statusOf(h, t)) ? t : addDays(t, -1);
   const start = addDays(startOf(h), -1);
   for (; d >= start; d = addDays(d, -1)) {
     if (!isScheduled(h, d)) continue;
@@ -156,7 +161,7 @@ function tally(h, from, to) {
   if (to > t) to = t;
   for (let d = new Date(from); d <= to; d = addDays(d, 1)) {
     const s = statusOf(h, d);
-    if (+d === +t && !s) continue;
+    if (+d === +t && !closed(s)) continue;
     if (h.schedule.type === 'weekly') { if (s === 'done') done++; if (s !== 'rest') exp += h.schedule.times / 7; }
     else if (isScheduled(h, d) && s !== 'rest') { exp++; if (s === 'done') done++; }
   }
@@ -175,7 +180,11 @@ function schedLabel(h) {
   return [1,2,3,4,5,6,0].filter(x => s.days.includes(x)).map(x => DOW_LONG[x]).join(' · ');
 }
 function setStatus(h, d, v) { const k = key(d); if (v) h.log[k] = v; else { delete h.log[k]; delete h.values[k]; } save(); }
-const valueLabel = (h, k) => h.measure && h.values[k] != null ? `${fmtNum(h.values[k])} ${esc(h.measure.unit)}` : '';
+const valueLabel = (h, k) => {
+  if (!h.measure || h.values[k] == null || h.log[k] !== 'done') return '';
+  const t = h.measure.target;
+  return t == null ? `${fmtNum(h.values[k])} ${esc(h.measure.unit)}` : `${fmtNum(h.values[k])}/${fmtNum(t)} ${esc(h.measure.unit)}${h.values[k] >= t ? ' ✓' : ''}`;
+};
 
 /* ================= Today ================= */
 const $ = s => document.querySelector(s);
@@ -186,9 +195,9 @@ function renderToday() {
   $('#dateLabel').textContent = t.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
   const hr = new Date().getHours();
   $('#greeting').textContent = (hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening') + ', Travis';
-  const due = state.habits.filter(h => isScheduled(h, t) && !(h.schedule.type === 'weekly' && weekMet(h, t) && !statusOf(h, t)));
+  const due = state.habits.filter(h => isScheduled(h, t) && !(h.schedule.type === 'weekly' && weekMet(h, t) && !closed(statusOf(h, t))));
   const other = state.habits.filter(h => !due.includes(h));
-  const done = due.filter(h => statusOf(h, t)).length;
+  const done = due.filter(h => closed(statusOf(h, t))).length;
   const pct = due.length ? Math.round(done / due.length * 100) : 0;
   $('#progressCard').hidden = !state.habits.length;
   $('#progressCard').innerHTML = `<div class="ring" style="--p:${pct}" data-l="${pct}%"></div>
@@ -202,23 +211,25 @@ function renderToday() {
 function card(h, off) {
   const t = today(), k = key(t), s = statusOf(h, t), st = streak(h), str = strength(h);
   const wk = h.schedule.type === 'weekly' ? `<span>${weekCount(h, t)}/${h.schedule.times} this week</span>` : '';
-  const val = valueLabel(h, k) ? `<span>📏 ${valueLabel(h, k)}</span>` : '';
+  const tg = h.measure?.target, v = h.values[k], logged = h.log[k] === 'done' && v != null;
+  const val = h.measure ? `<span class="val ${s === 'partial' ? 'amber' : s === 'done' ? 'met' : ''}">${logged ? valueLabel(h, k) : tg != null ? `0/${fmtNum(tg)} ${esc(h.measure.unit)}` : esc(h.measure.unit)}</span>` : '';
+  const frac = s === 'partial' && tg ? Math.max(.04, Math.min(1, v / tg)) : 0;
   const rem = h.reminder && !s ? `<span>⏰ ${h.reminder}</span>` : '';
   const note = h.notes[k] ? `<span>📝</span>` : '';
-  return `<div class="habit ${s === 'done' ? 'done' : ''} ${s === 'rest' ? 'rested' : ''} ${off ? 'off' : ''}" style="--c:${h.color}" data-id="${h.id}">
+  return `<div class="habit ${s === 'done' ? 'done' : ''} ${s === 'rest' ? 'rested' : ''} ${s === 'partial' ? 'partial' : ''} ${off ? 'off' : ''}" style="--c:${h.color};--f:${frac}" data-id="${h.id}">
     <button class="em" data-open aria-label="Open ${esc(h.name)}">${esc(h.emoji)}</button>
     <button class="info" data-open><div class="name">${esc(h.name)}</div>
       <div class="meta"><span>🔥 ${st.n} ${st.unit}</span><span>◔ ${str}%</span>${wk}${val}${rem}${note}</div></button>
     <button class="rest-btn ${s === 'rest' ? 'on' : ''}" data-rest aria-label="Rest day" title="Rest day">☾</button>
-    <button class="check" data-toggle aria-label="Mark ${esc(h.name)} done" aria-pressed="${s === 'done'}">${s === 'rest' ? '☾' : '✓'}</button>
+    <button class="check" data-toggle aria-label="Mark ${esc(h.name)} done" aria-pressed="${s === 'done'}">${s === 'rest' ? '☾' : s === 'partial' ? `<small>${Math.round(frac * 100)}%</small>` : '✓'}</button>
   </div>`;
 }
 $('#todayList').addEventListener('click', e => {
   const el = e.target.closest('.habit'); if (!el) return;
   const h = state.habits.find(x => x.id === el.dataset.id), t = today(), s = statusOf(h, t);
   if (e.target.closest('[data-toggle]')) {
-    if (s === 'done') { setStatus(h, t, null); renderToday(); return; }
-    if (h.measure) { openDay(h, t, 'done'); return; }       // measured: log the value on check-in
+    if (h.measure) { openDay(h, t, 'done'); return; }       // measured: enter / update today's amount
+    if (s === 'done') { setStatus(h, t, null); renderToday(); return; }       // measured: log the value on check-in
     setStatus(h, t, 'done'); if (navigator.vibrate) navigator.vibrate(10); renderToday();
     toast('Done ✓', 'Add note', () => openDay(h, t, 'done'));
   }
@@ -230,7 +241,7 @@ $('#todayList').addEventListener('click', e => {
 let dayCtx = null;
 function openDay(h, d, preset) {
   const k = key(d);
-  dayCtx = { h, d, status: preset !== undefined ? preset : statusOf(h, d) };
+  dayCtx = { h, d, status: preset !== undefined ? preset : (h.log[k] || null) };
   $('#dayTitle').textContent = `${h.emoji} ${+d === +today() ? 'Today' : fmtDay(d)}`;
   $('#daySub').textContent = h.name;
   $('#dayValueField').hidden = !h.measure;
@@ -238,11 +249,19 @@ function openDay(h, d, preset) {
     $('#dayUnit').textContent = h.measure.unit;
     $('#dayValue').value = h.values[k] ?? '';
     $('#dayValue').placeholder = h.measure.target != null ? String(h.measure.target) : '0';
-    $('#dayTarget').textContent = h.measure.target != null ? `Daily target: ${fmtNum(h.measure.target)} ${h.measure.unit}` : '';
   }
   $('#dayNote').value = h.notes[k] || '';
-  renderDaySeg(); $('#dayWrap').hidden = false;
+  dayHint(); renderDaySeg(); $('#dayWrap').hidden = false;
 }
+function dayHint() {
+  const { h } = dayCtx; if (!h.measure) return;
+  const raw = $('#dayValue').value.trim(), v = Number(raw.replace(',', '.')), t = h.measure.target, el = $('#dayTarget');
+  if (t == null) { el.textContent = 'No target — any amount counts as done.'; el.className = 'muted'; return; }
+  if (raw === '' || !Number.isFinite(v)) { el.textContent = `Daily target: ${fmtNum(t)} ${h.measure.unit}`; el.className = 'muted'; return; }
+  const met = v >= t; el.textContent = met ? `${fmtNum(v)}/${fmtNum(t)} ${h.measure.unit} ✓ target met` : `${fmtNum(v)}/${fmtNum(t)} ${h.measure.unit} — below target (saved, but not counted as done)`;
+  el.className = met ? 'hint-met' : 'hint-amber';
+}
+$('#dayValue').addEventListener('input', dayHint);
 function renderDaySeg() { document.querySelectorAll('#daySeg button').forEach(b => b.classList.toggle('sel', (b.dataset.v || null) === dayCtx.status)); }
 $('#daySeg').onclick = e => { const b = e.target.closest('button'); if (b) { dayCtx.status = b.dataset.v || null; renderDaySeg(); } };
 $('#dayForm').onsubmit = e => {
@@ -277,14 +296,15 @@ function renderDetail() {
     let cls = v || '';
     if (d > t) cls = 'future';
     else if (!v && d < t && h.schedule.type !== 'weekly' && isScheduled(h, d) && d >= parse(h.created)) cls = 'missed';
+    if (v === 'partial') cls = 'partial';
     if (+d === +t) cls += ' today';
     if (h.notes[k]) cls += ' has-note';
     cells += `<button class="day ${cls}" data-k="${k}" ${d > t ? 'disabled' : ''} aria-label="${d.toDateString()} ${v || ''}">${i}</button>`;
   }
   const canNext = new Date(month.getFullYear(), month.getMonth()+1, 1) <= t;
   const noteKeys = Object.keys(h.notes).filter(k => h.notes[k]).sort().reverse().slice(0, 8);
-  const notes = noteKeys.map(k => { const v = h.log[k];
-    return `<button class="note" data-k="${k}"><div class="note-h"><b>${fmtDay(parse(k))}</b><span class="pill ${v || 'none'}">${v === 'done' ? '✓ Done' : v === 'rest' ? '☾ Rest' : '—'}</span>${valueLabel(h, k) ? `<span class="muted">${valueLabel(h, k)}</span>` : ''}</div><p>${esc(h.notes[k])}</p></button>`; }).join('');
+  const notes = noteKeys.map(k => { const v = statusAt(h, k);
+    return `<button class="note" data-k="${k}"><div class="note-h"><b>${fmtDay(parse(k))}</b><span class="pill ${v || 'none'}">${v === 'done' ? '✓ Done' : v === 'rest' ? '☾ Rest' : v === 'partial' ? '◐ Not met' : '—'}</span>${valueLabel(h, k) ? `<span class="muted">${valueLabel(h, k)}</span>` : ''}</div><p>${esc(h.notes[k])}</p></button>`; }).join('');
   const vals = h.measure ? Object.keys(h.values).filter(k => h.log[k] === 'done') : [];
   const avg7 = vals.filter(k => parse(k) > addDays(t, -7)).map(k => h.values[k]);
   $('#detail').innerHTML = `<div class="in" style="--c:${h.color}">
@@ -300,10 +320,10 @@ function renderDetail() {
     <div class="card">
       <div class="cal-head"><button id="prevM" aria-label="Previous month">‹</button><b>${month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</b><button id="nextM" aria-label="Next month" ${canNext ? '' : 'disabled style="opacity:.3"'}>›</button></div>
       <div class="cal" id="cal">${cells}</div>
-      <div class="legend"><span><i style="background:${h.color}"></i>Done</span><span><i style="background:var(--rest)"></i>Rest</span>${h.schedule.type !== 'weekly' ? '<span><i style="background:var(--miss)"></i>Missed</span>' : ''}<span><i class="dot"></i>Note</span><span style="flex-basis:100%">Tap a day to log it, add a value or write a note.</span></div>
+      <div class="legend"><span><i style="background:${h.color}"></i>Done</span><span><i style="background:var(--rest)"></i>Rest</span>${h.measure?.target != null ? '<span><i style="background:var(--amber)"></i>Below target</span>' : ''}${h.schedule.type !== 'weekly' ? '<span><i style="background:var(--miss)"></i>Missed</span>' : ''}<span><i class="dot"></i>Note</span><span style="flex-basis:100%">Tap a day to log it, add a value or write a note.</span></div>
     </div>
     <div class="actions">
-      <button class="btn ${s === 'done' ? '' : 'primary'}" id="dDone">${s === 'done' ? '✓ Done today' : 'Check in today'}</button>
+      <button class="btn ${s === 'done' ? '' : 'primary'}" id="dDone">${s === 'done' ? `✓ ${valueLabel(h, key(t)) || 'Done today'}` : s === 'partial' ? `◐ ${valueLabel(h, key(t))} · update` : 'Check in today'}</button>
       <button class="btn" id="dRest">${s === 'rest' ? '☾ Resting' : '☾ Rest day'}</button>
     </div>
     <h3 class="section">Recent notes</h3>
@@ -313,7 +333,7 @@ function renderDetail() {
   $('#editBtn').onclick = () => openEdit(h);
   $('#prevM').onclick = () => { month = new Date(month.getFullYear(), month.getMonth()-1, 1); renderDetail(); };
   $('#nextM').onclick = () => { if (canNext) { month = new Date(month.getFullYear(), month.getMonth()+1, 1); renderDetail(); } };
-  $('#dDone').onclick = () => { if (s === 'done') { setStatus(h, t, null); renderDetail(); } else openDay(h, t, 'done'); };
+  $('#dDone').onclick = () => { if (s === 'done' && !h.measure) { setStatus(h, t, null); renderDetail(); } else openDay(h, t, 'done'); };
   $('#dRest').onclick = () => { setStatus(h, t, s === 'rest' ? null : 'rest'); renderDetail(); };
   $('#cal').onclick = e => { const b = e.target.closest('.day[data-k]'); if (b && !b.disabled) openDay(h, parse(b.dataset.k)); };
   $('#notes').onclick = e => { const b = e.target.closest('.note'); if (b) openDay(h, parse(b.dataset.k)); };
@@ -341,7 +361,8 @@ function lineChart(series, { color, min = 0, max, target, fmt = v => v, label, a
   const W = 340, H = 150, pl = 30, pr = 8, pt = 12, pb = 20;
   const pts = series.filter(p => p.v != null);
   if (pts.length < 2) return `<p class="muted small">Not enough data yet — log a few more days.</p>`;
-  const vmax = max ?? (Math.max(...pts.map(p => p.v), target ?? 0) * 1.15 || 1);
+  const nice = x => { const p = 10 ** Math.floor(Math.log10(x)), m = x / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p; };
+  const vmax = max ?? nice(Math.max(...pts.map(p => p.v), target ?? 0) * 1.1 || 1);
   const vmin = Math.min(min, ...pts.map(p => p.v));
   const X = i => pl + (W - pl - pr) * i / (series.length - 1), Y = v => pt + (H - pt - pb) * (1 - (v - vmin) / (vmax - vmin || 1));
   let g = [0, .5, 1].map(f => { const v = vmin + (vmax - vmin) * f; return `<line x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}" class="grid"/><text x="${pl - 5}" y="${Y(v) + 3}" class="ax" text-anchor="end">${fmt(v)}</text>`; }).join('');
@@ -378,9 +399,16 @@ function renderProgress() {
   const measured = sel.filter(h => h.measure);
   const valueCharts = measured.map(h => {
     const s = []; for (let i = 29; i >= 0; i--) { const d = addDays(t, -i), k = key(d); s.push({ d, v: h.log[k] === 'done' && h.values[k] != null ? h.values[k] : null }); }
-    const vs = s.filter(p => p.v != null).map(p => p.v);
+    const vs = s.filter(p => p.v != null).map(p => p.v), u = esc(h.measure.unit), sum = a => a.reduce((x, y) => x + y, 0);
     const hit = h.measure.target != null && vs.length ? vs.filter(v => v >= h.measure.target).length / vs.length : null;
-    return `<div class="card"><div class="card-h"><b>${esc(h.emoji)} ${esc(h.name)}</b><span class="muted small">${vs.length ? `avg ${fmtNum(vs.reduce((a, b) => a + b, 0) / vs.length)} ${esc(h.measure.unit)}` : ''}${hit != null ? ` · target hit ${Math.round(hit * 100)}%` : ''}</span></div>
+    const wk = []; for (let d = weekStart(t); d <= t; d = addDays(d, 1)) { const k = key(d); if (h.log[k] === 'done' && h.values[k] != null) wk.push(h.values[k]); }
+    return `<div class="card"><div class="card-h"><b>${esc(h.emoji)} ${esc(h.name)}</b><span class="muted small">${h.measure.target != null ? `target ${fmtNum(h.measure.target)} ${u}/day` : 'no target'}</span></div>
+      <div class="mstats" style="--c:${h.color}">
+        <div><b>${fmtNum(sum(wk))}</b><span>${u} this week</span></div>
+        <div><b>${wk.length ? fmtNum(sum(wk) / wk.length) : '–'}</b><span>avg ${u}/day logged</span></div>
+        <div><b>${hit != null ? Math.round(hit * 100) + '%' : '–'}</b><span>target hit · 30d</span></div>
+        <div><b>${fmtNum(sum(vs))}</b><span>${u} · 30 days</span></div>
+      </div>
       ${lineChart(s, { color: h.color, target: h.measure.target ?? undefined, fmt: fmtNum, label: `${h.name} values, last 30 days`, area: false })}</div>`;
   }).join('');
   const comp = state.habits.map(h => { const r30 = rate([h], 30), b = bestStreak(h);
@@ -434,6 +462,7 @@ function renderForm() {
   $('#daysRow').innerHTML = [1,2,3,4,5,6,0].map(i => `<button type="button" data-d="${i}" class="${draft.schedule.days.includes(i) ? 'sel' : ''}" aria-label="${DOW_LONG[i]}">${DOW[i]}</button>`).join('');
   $('#tVal').textContent = draft.schedule.times;
   $('#measureFields').hidden = !$('#fMeasure').checked;
+  document.querySelectorAll('.unit-chips button').forEach(b => b.classList.toggle('sel', b.textContent === $('#fUnit').value.trim()));
   $('#remFields').hidden = !$('#fRemOn').checked;
   $('#remHint').innerHTML = $('#fRemOn').checked ? notifHint() : '';
 }
@@ -443,9 +472,9 @@ function notifHint() {
   if (Notification.permission === 'denied') return 'Notifications are blocked for this app in Android settings — the calendar file in Settings still works.';
   return 'You’ll be asked to allow notifications after saving.';
 }
-$('#fMeasure').onchange = () => { renderForm(); if ($('#fMeasure').checked) $('#fUnit').focus(); };
+$('#fMeasure').onchange = () => { if ($('#fMeasure').checked && !$('#fUnit').value) $('#fUnit').value = 'minutes'; renderForm(); if ($('#fMeasure').checked) $('#fTarget').focus(); };
 $('#fRemOn').onchange = renderForm;
-document.querySelectorAll('.unit-chips button').forEach(b => b.onclick = () => { $('#fUnit').value = b.textContent; });
+document.querySelectorAll('.unit-chips button').forEach(b => b.onclick = () => { $('#fUnit').value = b.textContent; renderForm(); });
 $('#emojiRow').onclick = e => { const b = e.target.closest('button'); if (b) { draft.emoji = b.textContent; renderForm(); } };
 $('#fEmoji').oninput = e => { const v = [...e.target.value.trim()].slice(0, 2).join(''); if (v) { draft.emoji = v; renderForm(); } };
 $('#colorRow').onclick = e => { const b = e.target.closest('button'); if (b) { draft.color = b.dataset.c; renderForm(); } };
@@ -493,7 +522,7 @@ async function remRead() { try { const c = await caches.open(REM_CACHE), r = awa
 async function remWrite(data) { try { const c = await caches.open(REM_CACHE); await c.put(REM_URL, new Response(JSON.stringify(data), { headers: { 'content-type': 'application/json' } })); } catch {} }
 function dueReminders(habits, now = new Date()) {
   const t = today(), k = key(t), hm = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-  return habits.filter(h => h.reminder && h.reminder <= hm && isScheduled(h, t) && !h.log[k] && !(h.schedule.type === 'weekly' && weekMet(h, t)));
+  return habits.filter(h => h.reminder && h.reminder <= hm && isScheduled(h, t) && !closed(statusAt(h, k)) && !(h.schedule.type === 'weekly' && weekMet(h, t)));
 }
 async function showNote(title, body, tag, extra = {}) {
   const opts = { body, tag, icon: 'icon-192.png', badge: 'icon-192.png', data: { url: './' }, ...extra };
@@ -509,7 +538,7 @@ async function syncReminders() {
   const store = await remRead(); store.sent ||= {};
   for (const s of Object.keys(store.sent)) if (s < key(addDays(t, -3))) delete store.sent[s];
   store.habits = state.habits.filter(h => h.reminder).map(h => ({ id: h.id, name: h.name, emoji: h.emoji, reminder: h.reminder, schedule: h.schedule, why: h.why,
-    log: Object.fromEntries(Object.entries(h.log).filter(([d]) => d >= key(addDays(weekStart(t), -1)))) }));
+    log: Object.fromEntries(Object.keys(h.log).filter(d => d >= key(addDays(weekStart(t), -1)) && closed(statusAt(h, d))).map(d => [d, h.log[d]])) }));
   await remWrite(store);
   if (!notifReady()) return;
   const now = new Date();
@@ -530,7 +559,7 @@ async function syncReminders() {
         const [H, M] = h.reminder.split(':').map(Number);
         for (let i = 0; i < 7; i++) {
           const d = addDays(t, i), at = new Date(d); at.setHours(H, M, 0, 0);
-          if (at <= now || !isScheduled(h, d) || (i === 0 && h.log[k])) continue;
+          if (at <= now || !isScheduled(h, d) || (i === 0 && closed(statusAt(h, k)))) continue;
           await reg.showNotification(`${h.emoji} ${h.name}`, { body: h.why || 'Time for your habit.', tag: `rem-${h.id}-${key(d)}`, icon: 'icon-192.png', showTrigger: new TimestampTrigger(+at), data: { url: './' } });
         }
       }

@@ -55,11 +55,12 @@
       <div class="days" id="daysRow"></div>
       <div class="times" id="timesRow"><button type="button" id="tMinus">−</button><b id="tVal">3</b><span>times per week</span><button type="button" id="tPlus">+</button></div>
     </div>
-    <div class="field"><label class="toggle"><span class="t-label">Measure a value<small>e.g. minutes, pages, hours slept, reps</small></span><input type="checkbox" id="fMeasure"><i></i></label>
+    <div class="field"><label class="toggle"><span class="t-label">Measure an amount<small>Log minutes, hours, pages… with a daily target</small></span><input type="checkbox" id="fMeasure"><i></i></label>
       <div id="measureFields" class="sub">
-        <div class="two"><label><small>Unit</small><input id="fUnit" maxlength="16" placeholder="min"></label>
-        <label><small>Daily target <em>(optional)</em></small><input id="fTarget" inputmode="decimal" placeholder="20"></label></div>
-        <div class="unit-chips"><button type="button">min</button><button type="button">pages</button><button type="button">hours</button><button type="button">reps</button><button type="button">km</button><button type="button">glasses</button></div>
+        <div class="two"><label><small>Unit</small><input id="fUnit" maxlength="16" placeholder="minutes"></label>
+        <label><small>Daily target</small><input id="fTarget" inputmode="decimal" placeholder="30"></label></div>
+        <div class="unit-chips"><button type="button">minutes</button><button type="button">hours</button><button type="button">pages</button><button type="button">reps</button><button type="button">km</button><button type="button">glasses</button></div>
+        <p class="muted small" style="margin:10px 0 0">A day counts as done only when you reach the target. Leave it empty and any amount counts.</p>
       </div></div>
     <div class="field"><label class="toggle"><span class="t-label">Daily reminder<small>Optional notification at a set time</small></span><input type="checkbox" id="fRemOn"><i></i></label>
       <div id="remFields" class="sub"><input type="time" id="fRemTime" value="09:00" class="time-input"><p class="muted small" id="remHint"></p></div></div>

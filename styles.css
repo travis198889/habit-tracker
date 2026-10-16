@@ -145,3 +145,17 @@ h2{margin:0;font-size:17px}
 .btn-in.primary{background:var(--accent);color:#fff}
 .caps{margin:12px 0 0;padding-left:18px;line-height:1.7}
 .field-label{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:18px 4px 8px}
+/* ---- v3: targets ---- */
+:root{--amber:#e0a63a}
+.habit .val{font-weight:600;color:var(--ink)}.habit .val.amber{color:#b07a14}.habit .val.met{color:var(--c)}
+.partial .check{border:0;background:conic-gradient(var(--amber) calc(var(--f)*360deg),color-mix(in srgb,var(--amber) 18%,white) 0);position:relative;color:#8a5d0a}
+.partial .check::before{content:'';position:absolute;inset:5px;border-radius:50%;background:var(--card)}
+.partial .check small{position:relative;font-size:11px;font-weight:700}
+.day.partial{background:color-mix(in srgb,var(--amber) 28%,white);color:#8a5d0a;font-weight:600}
+.pill.partial{background:color-mix(in srgb,var(--amber) 25%,white);color:#8a5d0a}
+.hint-met{color:var(--accent);font-weight:600}.hint-amber{color:#b07a14;font-weight:600}
+#dayTarget{display:block;margin-top:6px}
+.unit-chips button.sel{background:var(--accent);color:#fff}
+.mstats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.mstats div{background:var(--bg);border-radius:12px;padding:10px 12px}
+.mstats b{display:block;font-size:20px;color:var(--c)}.mstats span{font-size:12px;color:var(--muted)}
