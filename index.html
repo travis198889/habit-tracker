@@ -22,9 +22,14 @@
     <button class="icon-btn" id="settingsBtn" aria-label="Settings">⋯</button>
   </header>
   <section class="progress-card" id="progressCard"></section>
-  <main id="todayList"></main>
+  <main id="todayView"><div id="todayList"></div></main>
+  <main id="progressView" hidden></main>
   <button class="fab" id="addBtn" aria-label="Add habit">+ New habit</button>
 </div>
+<nav class="tabbar" aria-label="Sections">
+  <button data-tab="today" class="sel"><span>◉</span>Today</button>
+  <button data-tab="progress"><span>📈</span>Progress</button>
+</nav>
 
 <!-- Detail view -->
 <section class="screen" id="detail" hidden></section>
@@ -50,6 +55,14 @@
       <div class="days" id="daysRow"></div>
       <div class="times" id="timesRow"><button type="button" id="tMinus">−</button><b id="tVal">3</b><span>times per week</span><button type="button" id="tPlus">+</button></div>
     </div>
+    <div class="field"><label class="toggle"><span class="t-label">Measure a value<small>e.g. minutes, pages, hours slept, reps</small></span><input type="checkbox" id="fMeasure"><i></i></label>
+      <div id="measureFields" class="sub">
+        <div class="two"><label><small>Unit</small><input id="fUnit" maxlength="16" placeholder="min"></label>
+        <label><small>Daily target <em>(optional)</em></small><input id="fTarget" inputmode="decimal" placeholder="20"></label></div>
+        <div class="unit-chips"><button type="button">min</button><button type="button">pages</button><button type="button">hours</button><button type="button">reps</button><button type="button">km</button><button type="button">glasses</button></div>
+      </div></div>
+    <div class="field"><label class="toggle"><span class="t-label">Daily reminder<small>Optional notification at a set time</small></span><input type="checkbox" id="fRemOn"><i></i></label>
+      <div id="remFields" class="sub"><input type="time" id="fRemTime" value="09:00" class="time-input"><p class="muted small" id="remHint"></p></div></div>
     <label class="field"><span>Why <em>(optional)</em></span><textarea name="why" id="fWhy" rows="2" maxlength="200" placeholder="What does this habit give you?"></textarea></label>
     <button type="button" class="danger" id="deleteBtn" hidden>Delete habit</button>
   </form>
@@ -59,12 +72,33 @@
 <div class="sheet-wrap" id="settingsWrap" hidden>
   <div class="sheet">
     <div class="sheet-head"><span></span><h2>Settings</h2><button type="button" class="link strong" data-close>Done</button></div>
+    <div class="field" id="remSection"><span>Reminders</span>
+      <p class="status" id="notifStatus"></p>
+      <p class="small explain">Habits can nudge you with a phone notification at each habit’s reminder time. <b>Honest caveat:</b> this app has no server, so Android only delivers them reliably while the app is open or was used recently; background delivery is best-effort. For reminders that <b>always</b> arrive, add the calendar file to Google Calendar.</p>
+      <p class="muted small" id="remCount"></p>
+      <button type="button" class="btn-in primary" id="notifBtn">🔔 Allow notifications</button>
+      <button type="button" class="btn-in" id="testNotifBtn">Send test notification</button>
+      <button type="button" class="btn-in" id="icsBtn">📅 Download calendar reminders (.ics)</button>
+      <ul class="caps small muted" id="remCaps"></ul>
+    </div>
+    <div class="field-label">Backup</div>
     <button class="row-btn" id="exportBtn">⬇️ Export backup (JSON)</button>
     <label class="row-btn">⬆️ Import backup<input type="file" id="importFile" accept="application/json,.json" hidden></label>
     <button class="row-btn" id="clearSampleBtn">🧹 Clear sample data</button>
     <button class="row-btn danger-text" id="resetBtn">Delete all habits</button>
     <p class="muted small">Your data stays on this device (localStorage). Export regularly to keep a backup.</p>
   </div>
+</div>
+
+<!-- Day / check-in sheet -->
+<div class="sheet-wrap" id="dayWrap" hidden>
+  <form class="sheet" id="dayForm" autocomplete="off">
+    <div class="sheet-head"><button type="button" class="link" data-close>Cancel</button><div class="center"><h2 id="dayTitle"></h2><small class="muted" id="daySub"></small></div><button type="submit" class="link strong">Save</button></div>
+    <div class="seg" id="daySeg"><button type="button" data-v="done">✓ Done</button><button type="button" data-v="rest">☾ Rest</button><button type="button" data-v="">Not done</button></div>
+    <label class="field" id="dayValueField" style="margin-top:12px"><span>Value</span>
+      <div class="val-row"><input id="dayValue" inputmode="decimal" placeholder="0"><b id="dayUnit"></b></div><small class="muted" id="dayTarget"></small></label>
+    <label class="field" style="margin-top:12px"><span>Note <em>(optional)</em></span><textarea id="dayNote" rows="3" maxlength="500" placeholder="How did it go?"></textarea></label>
+  </form>
 </div>
 
 <div class="toast" id="toast" hidden></div>
